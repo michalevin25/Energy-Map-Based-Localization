@@ -7,7 +7,6 @@ import math
 from scipy.interpolate import interp1d
 from tqdm import tqdm 
 import time
-from scipy.ndimage import sobel
 
 
 
@@ -26,8 +25,12 @@ class SensorDataLoader:
 
 class OdometryProcessor:
     def rotate_odom (compass_data, odom_data):
+        
+        #  ensure compass headings are continuous and consistent for further math
         compass_heading_wrapped = (compass_data['heading'] + np.pi) % (2 * np.pi) - np.pi
         odom_heading = []
+        
+        # loop is so math.atan2 can be used (not numpy  functions)
         for i in range(0, len(odom_data)):
             dx = odom_data["dx"][i]
             dy = odom_data["dy"][i]
@@ -40,11 +43,11 @@ class OdometryProcessor:
         rot_angle =  np.mean(compass_heading_wrapped[1:30]) - np.mean(odom_heading[0:30])
  
         
-        # Rotation matrix components
+        # rotation matrix
         cos_a = np.cos(rot_angle)
         sin_a = np.sin(rot_angle)
     
-        # Apply rotation to each (dx, dy) pair
+        # rotate odom to compass frame
         dx_rot = odom_data['dx'] * cos_a - odom_data['dy'] * sin_a
         dy_rot = odom_data['dx'] * sin_a + odom_data['dy'] * cos_a
         
@@ -57,39 +60,39 @@ class OdometryProcessor:
     def fuse_odom_compass(sigma_heading, sigma_odom,compass_heading,dx_rot, dy_rot):
     
     
-        # Cumulative position
+        # odom position
         odom_x = np.cumsum(dx_rot)
         odom_y = np.cumsum(dy_rot)
     
-        # Per-step odometry distance
+        # odom distance
         delta_x = np.diff(odom_x)
         delta_y = np.diff(odom_y)
         distance = np.sqrt(delta_x**2 + delta_y**2)
     
-        # Inflate odometry distance error to rely more on heading
-        sigma_dist = 0.05 * distance  # was 0.02 → trust heading more
+        
+        sigma_dist = 0.02 * distance  
     
-        # Error propagation with lower heading uncertainty
-        sigma_dx = np.sqrt((sigma_heading * 0.05 * np.cos(compass_heading[:-1]))**2 +  # reduced heading sigma
+        # propogation - tusting the compass more
+        sigma_dx = np.sqrt((sigma_heading * 0.5 * np.cos(compass_heading[:-1]))**2 +  # reduced heading sigma
                            (distance * sigma_dist * np.sin(compass_heading[:-1]))**2)
-        sigma_dy = np.sqrt((sigma_heading * 0.05 * np.sin(compass_heading[:-1]))**2 +
+        sigma_dy = np.sqrt((sigma_heading * 0.5 * np.sin(compass_heading[:-1]))**2 +
                            (distance * sigma_dist * np.cos(compass_heading[:-1]))**2)
     
-        # Weights — heading now dominates
+        # Weights — dominating the compass over the odom
         weights_dx = 1 / (sigma_dx**2 + 1e-6)
         weights_dy = 1 / (sigma_dy**2 + 1e-6)
     
-        # Displacement purely from heading
+        
         dx_heading = distance * np.cos(compass_heading[:-1])
         dy_heading = distance * np.sin(compass_heading[:-1])
     
-        # Weighted smoothing (heading favored)
+        
         dx_fused_filtered = np.convolve(dx_heading * weights_dx, np.ones(5)/5, mode='same') / \
                             np.convolve(weights_dx, np.ones(5)/5, mode='same')
         dy_fused_filtered = np.convolve(dy_heading * weights_dy, np.ones(5)/5, mode='same') / \
                             np.convolve(weights_dy, np.ones(5)/5, mode='same')
     
-        # Integrate to get fused trajectory
+        # fused trajectory
         x_fused = np.cumsum(dx_fused_filtered)
         y_fused = np.cumsum(dy_fused_filtered)
 
@@ -101,30 +104,10 @@ class EnergyMapMatcher:
         self.energy_map = energy_map.astype(np.float32, copy=False)
         self.energy_data = energy_data
 
-    def EnergyPath(self,x,y, strt_x, strt_y, title):
-        print('im here')
-        x = x+strt_x
-        y = y+strt_y
-        valid_mask = (
-        (x  >= 0) & (x < self.energy_map.shape[1]) &
-        (y >= 0) & (y < self.energy_map.shape[0])
-        )
-        
-        # Allocate an array with zeros by default
-        energy_along_path = np.zeros_like(x, dtype=float)
-        # Only insert valid values
-        energy_along_path[valid_mask] = self.energy_map[y[valid_mask].astype(int), x[valid_mask].astype(int)]
-    # =============================================================================
-        # plt.figure()
-        # plt.plot(energy_along_path, label = 'energy along path')
-        # plt.plot( energy_data['true_energy'], label='True Energy')
-        # plt.legend()
-        # plt.title(title)
-    
-    # =============================================================================
-        return energy_along_path
+
 
     def push_into_map(self, x_fused, y_fused):
+        # first step: pushing trajectory to map bounds. The first time that there is a match with the energy map - stop
             x_shifts = range(0, 1000, 5)
             y_shifts = range(0, 1000, 5)
             for dx_shift in x_shifts:
@@ -140,6 +123,9 @@ class EnergyMapMatcher:
 
 
     def energy_map_matching(self, info):
+        # matching the energy of the trajcrtoy to the map by shifting around the map (or parts of it)
+        # until the best result is found
+        
         x_shifted = info["x_shifted_window"].astype(np.int32, copy=False)
         y_shifted = info["y_shifted_window"].astype(np.int32, copy=False)
         true_energy = info["true_energy_window"].astype(np.float32, copy=False)
@@ -148,8 +134,7 @@ class EnergyMapMatcher:
         dx_list = np.array(list(info["x_shift_range"]), dtype=np.int32)
         dy_list = np.array(list(info["y_shift_range"]), dtype=np.int32)
 
-        # Precompute for mapping back to (i,j)
-        DX, DY = np.meshgrid(dx_list, dy_list, indexing="ij")  # (Nx, Ny)
+        DX, DY = np.meshgrid(dx_list, dy_list, indexing="ij")  
         pairs = np.stack([DX.ravel(), DY.ravel()], axis=1)      
         K = pairs.shape[0]
         N = x_shifted.shape[0]
@@ -166,31 +151,31 @@ class EnergyMapMatcher:
                 X = x_shifted[:, None] + dx_batch[None, :]
                 Y = y_shifted[:, None] + dy_batch[None, :]
     
-                # Valid mask per sample/shift
+                # mask per sample/shift
                 valid = (X >= 0) & (X < W) & (Y >= 0) & (Y < H)
     
-                # Clamp (only used where valid=True)
+                # clamping
                 Xc = np.clip(X, 0, W - 1)
                 Yc = np.clip(Y, 0, H - 1)
     
-                # Sample energy map: (N,B)
+                
                 Em = self.energy_map[Yc, Xc]
     
-                # Compute squared error where valid
+                # squared error where valid
                 diff = Em - np.asarray(true_energy)[:, None]
                 diff_sq = diff * diff
                 diff_sq *= valid  # zero out invalid
     
-                # RMSE per shift (B,)
+                # RMSE per shift 
                 valid_counts = valid.sum(axis=0)  # (B,)
                 with np.errstate(divide='ignore', invalid='ignore'):
                     mse = diff_sq.sum(axis=0) / np.maximum(valid_counts, 1)
                     rmse = np.sqrt(mse, dtype=np.float32)
     
-                # Enforce minimum valid coverage
+                # minimum valid coverage
                 rmse[valid_counts < min_valid] = np.inf
     
-                # Track global best
+                # keep track of global best
                 bmin = np.argmin(rmse)
                 if rmse[bmin] < best_score:
                     best_score = float(rmse[bmin])
@@ -198,7 +183,7 @@ class EnergyMapMatcher:
     
                 
     
-        # Apply best shift
+        # apply  best shift to get alignment
         x_aligned = x_shifted + best_pair[0]
         y_aligned = y_shifted + best_pair[1]
 
@@ -208,6 +193,8 @@ class EnergyMapMatcher:
 
 
     def hierarchical_map_matching(self, x_shifted, y_shifted, true_energy, sigma_energy, odom_drift_ratio, levels, best_shift):
+        
+        # apply energy matching in levels
             for level in levels:
                 stride = level['stride']
                 radius = level['radius']
@@ -247,6 +234,8 @@ class TrajectoryStitcher:
 
     def create_windows(self, length, window_size, step_size):
         
+        # create windows for window map matching
+        
         windows = [(i, i + window_size) for i in range(0, length - window_size + 1, step_size)]
         if windows[-1][1] < length:
             windows.append((length - window_size, length))
@@ -266,18 +255,23 @@ class TrajectoryStitcher:
         prev_best_shift = (0, 0)
         outlier_count = 0
         all_best_shifts = [] 
+        
+        # begin loop of matching per window
+        
         for counter, (start, end) in tqdm(enumerate(windows), total=len(windows), desc="Stitching trajectory windows"):
             x_window = x_aligned[start:end].copy()
             y_window = y_aligned[start:end].copy()
             energy_window = true_energy[start:end]
     
+            # re-use hierarchical map matching function with the finest level only
             level = [{**self.levels[2], "window": end - start}]
             x_aligned_win, y_aligned_win, best_shift = self.matcher.hierarchical_map_matching(
                 x_window, y_window, energy_window,
                 self.sigma_energy, self.sigma_odom,
                 level, best_shift
             )
-    
+            
+            # dealing with outliers
             if abs(prev_best_shift[0] - best_shift[0]) >= 7 or abs(prev_best_shift[1] - best_shift[1]) >= 7:
                 best_shift = ((prev_best_shift[0] + best_shift[0]) // 2,
                               (prev_best_shift[1] + best_shift[1]) // 2)
@@ -294,6 +288,7 @@ class TrajectoryStitcher:
         stitched_x_all[mask] = stitched_x_all[mask] / weight_array[mask].astype(np.float32)
         stitched_y_all[mask] = stitched_y_all[mask] / weight_array[mask].astype(np.float32)
         
+        # for evaluations
         outlier_percent = (outlier_count/counter)*100
 
         return stitched_x_all, stitched_y_all, all_best_shifts, outlier_percent
@@ -329,7 +324,7 @@ class TrajectoryEvaluator:
         print("number of outlier windows in window matching:", np.round(outlier_percent,2), "%")
         
         diff_in_shifts = np.diff(all_best_shifts, axis = 0)
-        plt.figure()
+        plt.figure(figsize=(15, 8))
         plt.subplot(2,1,1)
         plt.plot(diff_in_shifts[:,0])
         plt.xlabel('number of windows')
@@ -340,6 +335,8 @@ class TrajectoryEvaluator:
         plt.xlabel('number of windows')
         plt.ylabel('shift in map pixels')
         plt.title('Y-axis Shift Variation Across Windows')
+        plt.tight_layout()
+        plt.show()
         
         S = np.asarray(all_best_shifts, dtype=int)
         # Histogram of shifts
@@ -384,15 +381,16 @@ class TrajectoryEvaluator:
         plt.grid()
         plt.show()
         
-        # Convergence analysis
+        # Histogram
+        plt.figure(figsize=(8, 5))
+        plt.hist(errors, bins=30, color='steelblue', edgecolor='black')
+        plt.xlabel('Position Error (meters)')
+        plt.ylabel('Frequency')
+        plt.title('Error Distribution Histogram')
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.show()
         
-        
-
-
-        
-        
-        
-
 
 
 def main():
