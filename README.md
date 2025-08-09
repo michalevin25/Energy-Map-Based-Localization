@@ -1,6 +1,6 @@
 # Energy-Map-Based-Localization
 Explanation about the algorithm:
-My approach was to create a simple algorithm to find the odomerty trajectory. 
+My approach was to create a simple and as straight-forward as possible algorithm. 
 The steps were as following:
 1. The odometry trajectory was rotated, I'm assuming since it was recorded in a body frame. I corrected it to the compass (and GNSS) global frame.
 2. I fused the odometry and compass, using the position from the odometry and the heading from the compass. Here I took into caclulation the sensors' errors, and since the odometry has an inherent drift, I trusted the compass more.
@@ -19,7 +19,7 @@ The steps were as following:
    
    <img width="450" height="409" alt="image" src="https://github.com/user-attachments/assets/a549ef60-1c06-4304-bea4-4fbc390886cd" />
 
-   3d. After finding the initial starting point, a function that refine local alignment was applied. It splits the aligned trajectory into overlapping windows. If a window’s shift is too different from the previous one, it smooths the correction and counts it as an outlier. It then stitches the corrected windows together by averaging overlapping sections, returning a continuous aligned path with an outlier percentage.
+   3d. After finding the initial starting point, a function that refines local alignment was applied. It splits the aligned trajectory into overlapping windows. If a window’s shift is too different from the previous one, it smooths the correction and counts it as an outlier. It then stitches the corrected windows together by averaging overlapping sections, returning a continuous aligned path with an outlier percentage.
 
 Overview of the alogirhm is below:
 
