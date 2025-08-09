@@ -1,6 +1,24 @@
 # Energy-Map-Based-Localization
+Explanation about the algorithm:
+My approach was to create a simple algorithm to find the odomerty trajectory. 
+The steps were as following:
+1. The odometry trajectory was rotated, I'm assuming since it was recorded in a body frame. I corrected it to the compass (and GNSS) global frame.
+2. I fused the odometry and compass, using the position from the odometry and the heading from the compass. Here I took into caclulation the sensors' errors, and since the odometry has an inherent drift, I trusted the compass more.
+4. Map matching: This part was done in a couple of steps, going from coarse to fine. The reason for this was processing time, and to increase accuracy.
+   3a. In each step there was a matching energy function: The energy in the estimated trajectory is compared to the map's energy values until the best aligned energy is found.
+   3b. Initially, The estimated trajectory was out of map's bounds. Therefore, it was pushed to be inside the bounds so that the algorithm wont search in non-relevant space.
+   <img width="395" height="426" alt="image" src="https://github.com/user-attachments/assets/6a9760d6-6d60-44ae-9fbd-ad02cfc5a439" />
+
+   3c. The next goal was to find the starting point of the trajectory. In order to do so, I ran the matching energy function in three levels, from coarse to fine, in each level making the shifting variables finer and narrowing the   search area. Each was shift based on a trust factor alpha that balanced odometry drift and energy noise.
+   3d. After finding the initial starting point, a function that refine local alignment was applied. It splits the aligned trajectory into overlapping windows. If a window’s shift is too different from the previous one, it smooths the correction and counts it as an outlier. It then stitches the corrected windows together by averaging overlapping sections, returning a continuous aligned path with an outlier percentage.
+
+Overview of the alogirhm is below:
 
 <img width="1117" height="270" alt="image" src="https://github.com/user-attachments/assets/9de74d2d-e508-4e46-9f82-349f3c671b1a" />
+
+Final result is below: 
+
+
 
 ## Accuracy Metrics
 
