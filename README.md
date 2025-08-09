@@ -27,14 +27,17 @@ Shift Distribution Histogram – A 2D histogram showing the frequency of differe
  **Energy map** with GNSS ground truth trajectory overlaid:
  
 <img width="312" height="319" alt="image" src="https://github.com/user-attachments/assets/5fb2a1b2-452d-4fb2-8cd2-f15737062444" />
+
 **Estimated vs. GNSS ground truth trajectory** comparison
 
 <img width="312" height="319" alt="image" src="https://github.com/user-attachments/assets/1b1a00f9-eb8e-4eb4-a549-d72ac1f1a847" />
+
 **Position error over time** (distance between estimated and GNSS positions)
 
 <img width="389" height="278" alt="image" src="https://github.com/user-attachments/assets/e5e51f94-5fcf-4c67-9e16-345b0fffef72" />
 
 **Error distribution histogram** to show error characteristics
+
 <img width="568" height="352" alt="image" src="https://github.com/user-attachments/assets/a94a98b9-ca69-4fd5-97a1-bfb630296688" />
 
 
