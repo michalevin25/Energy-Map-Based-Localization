@@ -22,11 +22,11 @@ My approach was to create a simple and as straight-forward as possible algorithm
 
    3d. After finding the initial starting point, a function that refines local alignment was applied. It splits the aligned trajectory into overlapping windows. If a window’s shift is too different from the previous one, it smooths the correction and counts it as an outlier. It then stitches the corrected windows together by averaging overlapping sections, returning a continuous aligned path with an outlier percentage.
 
-Overview of the alogirhm is below:
+### Overview of the alogirhm is below:
 
 <img width="1117" height="270" alt="image" src="https://github.com/user-attachments/assets/9de74d2d-e508-4e46-9f82-349f3c671b1a" />
 
-Final result is below: 
+### Final result is below: 
 
 <img width="312" height="319" alt="image" src="https://github.com/user-attachments/assets/1b1a00f9-eb8e-4eb4-a549-d72ac1f1a847" />
 
