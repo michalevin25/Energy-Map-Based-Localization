@@ -1,7 +1,8 @@
 # Energy-Map-Based-Localization
-Explanation about the algorithm:
+
+## Explanation about the algorithm:
 My approach was to create a simple and as straight-forward as possible algorithm. 
-The steps were as following:
+### The steps were as following:
 1. The odometry trajectory was rotated, I'm assuming since it was recorded in a body frame. I corrected it to the compass (and GNSS) global frame.
 2. I fused the odometry and compass, using the position from the odometry and the heading from the compass. Here I took into caclulation the sensors' errors, and since the odometry has an inherent drift, I trusted the compass more.
 4. Map matching: This part was done in a couple of steps, going from coarse to fine. The reason for this was processing time, and to increase accuracy.
