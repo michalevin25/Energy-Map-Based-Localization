@@ -10,11 +10,13 @@ The steps were as following:
    <img width="395" height="426" alt="image" src="https://github.com/user-attachments/assets/6a9760d6-6d60-44ae-9fbd-ad02cfc5a439" />
 
    result of pushing to boundaries:
+   
    <img width="450" height="426" alt="image" src="https://github.com/user-attachments/assets/c9c87bcf-2033-44c7-a62b-34de82d37612" />
 
    3c. The next goal was to find the starting point of the trajectory. In order to do so, I ran the matching energy function in three levels, from coarse to fine, in each level making the shifting variables finer and narrowing the   search area. Each was shift based on a trust factor alpha that balanced odometry drift and energy noise.
 
    Below is how the trajectory looked after aligning the starting point, but before local alignment (next step):
+   
    <img width="450" height="409" alt="image" src="https://github.com/user-attachments/assets/a549ef60-1c06-4304-bea4-4fbc390886cd" />
 
    3d. After finding the initial starting point, a function that refine local alignment was applied. It splits the aligned trajectory into overlapping windows. If a window’s shift is too different from the previous one, it smooths the correction and counts it as an outlier. It then stitches the corrected windows together by averaging overlapping sections, returning a continuous aligned path with an outlier percentage.
